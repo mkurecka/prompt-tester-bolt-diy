@@ -3,7 +3,7 @@ import { TestResult, Model } from '../types';
 import { formatDate } from '../utils/helpers';
 import { generateCodeSnippet } from '../utils/helpers';
 import { useApiKey } from '../context/ApiKeyContext';
-import { Copy, Download, Code, Clock, DollarSign } from 'lucide-react';
+import { Copy, Download, Code, Clock, DollarSign, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -17,6 +17,7 @@ const TestResults: React.FC<TestResultsProps> = ({ results, models }) => {
   const { apiKey } = useApiKey();
   const [activeTab, setActiveTab] = useState<string>(results[0]?.modelId || '');
   const [codeLanguage, setCodeLanguage] = useState<'javascript' | 'python' | 'curl'>('javascript');
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
   
   if (results.length === 0) {
     return (
@@ -29,8 +30,33 @@ const TestResults: React.FC<TestResultsProps> = ({ results, models }) => {
   const activeResult = results.find(result => result.modelId === activeTab) || results[0];
   const activeModel = models.find(model => model.id === activeResult.modelId);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (text: string, elementId: string) => {
+    try {
+      // Create a temporary textarea element
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      
+      // Make the textarea out of viewport
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      
+      // Select and copy the text
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      
+      // Remove the textarea
+      document.body.removeChild(textArea);
+      
+      // Show success message
+      setCopySuccess(elementId);
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      alert('Failed to copy text to clipboard. Please try again or copy manually.');
+    }
   };
 
   const downloadResult = (result: TestResult) => {
@@ -54,7 +80,7 @@ const TestResults: React.FC<TestResultsProps> = ({ results, models }) => {
       }))
     };
     
-    copyToClipboard(JSON.stringify(config, null, 2));
+    copyToClipboard(JSON.stringify(config, null, 2), 'config');
   };
 
   const getCodeSnippet = () => {
@@ -121,8 +147,12 @@ const TestResults: React.FC<TestResultsProps> = ({ results, models }) => {
               onClick={exportPromptConfig}
               className="flex items-center px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md"
             >
-              <Copy className="h-4 w-4 mr-1" />
-              Copy Config
+              {copySuccess === 'config' ? (
+                <Check className="h-4 w-4 mr-1 text-green-600" />
+              ) : (
+                <Copy className="h-4 w-4 mr-1" />
+              )}
+              {copySuccess === 'config' ? 'Copied!' : 'Copy Config'}
             </button>
           </div>
         </div>
@@ -153,11 +183,15 @@ const TestResults: React.FC<TestResultsProps> = ({ results, models }) => {
               </select>
               
               <button
-                onClick={() => copyToClipboard(getCodeSnippet())}
+                onClick={() => copyToClipboard(getCodeSnippet(), 'code')}
                 className="flex items-center px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md"
               >
-                <Copy className="h-3 w-3 mr-1" />
-                Copy
+                {copySuccess === 'code' ? (
+                  <Check className="h-3 w-3 mr-1 text-green-600" />
+                ) : (
+                  <Copy className="h-3 w-3 mr-1" />
+                )}
+                {copySuccess === 'code' ? 'Copied!' : 'Copy'}
               </button>
             </div>
           </div>
